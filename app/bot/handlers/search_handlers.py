@@ -32,7 +32,7 @@ LIST_TITLES = {
     "favorites": "btn_favorites",
     "history": "btn_history",
     "recommend": "btn_recommend",
-    "search": None,
+    "search": None,@registered_user
 }
 
 
@@ -175,17 +175,36 @@ async def start_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     db_user = context.user_data["db_user"]
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text(t("ask_search", db_user.language))
+    await query.edit_message_text(
+        "🎬 Film nomini yoki kodini kiriting.\n\n"
+        "Masalan:\n"
+        "• Avatar\n"
+        "• John Wick\n"
+        "• 100"
+    )
     return SearchStates.WAITING_QUERY
 
 
 @registered_user
 async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await send_movie_list(update, context, "search", update.message.text.strip(), 0)
+    text = update.message.text.strip()
+
+    # Agar foydalanuvchi faqat raqam yozgan bo'lsa
+    if text.isdigit():
+        movie = await run_blocking(movie_service.get_by_code, text)
+
+        if movie:
+            from app.bot.handlers.movie_handlers import send_movie_detail
+            await send_movie_detail(update, context, movie.id, edit=False)
+            return ConversationHandler.END
+
+    # Aks holda film nomi bo'yicha qidirish
+    await send_movie_list(update, context, "search", text, 0)
+
     return ConversationHandler.END
 
-
 @registered_user
+
 async def start_code_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db_user = context.user_data["db_user"]
     query = update.callback_query
@@ -194,7 +213,7 @@ async def start_code_search(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return SearchStates.WAITING_CODE
 
 
-@registered_user
+
 async def receive_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db_user = context.user_data["db_user"]
     movie = await run_blocking(movie_service.get_by_code, update.message.text.strip())
