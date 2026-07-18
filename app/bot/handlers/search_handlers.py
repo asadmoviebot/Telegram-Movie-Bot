@@ -32,9 +32,8 @@ LIST_TITLES = {
     "favorites": "btn_favorites",
     "history": "btn_history",
     "recommend": "btn_recommend",
-    "search": None,@registered_user
+    "search": None,
 }
-
 
 async def _fetch_movies(list_type: str, param: str, user_id: int) -> list:
     if list_type == "top":
