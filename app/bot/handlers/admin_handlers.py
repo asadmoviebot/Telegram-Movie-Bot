@@ -169,6 +169,8 @@ async def delete_genre(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 @admin_only
 async def start_add_movie(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop("new_movie", None)
+    context.user_data.pop("selected_genres", None)
     context.user_data["new_movie"] = {}
     query = update.callback_query
     await query.answer()
@@ -360,7 +362,9 @@ async def delete_movie_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 
-def register(application: Application) -> None:
+# ------------------------------------------------------------- Register ---
+
+async def register(application: Application) -> None:
     application.add_handler(CallbackQueryHandler(open_admin_menu, pattern=r"^admin:menu$"))
     application.add_handler(CallbackQueryHandler(close_admin_menu, pattern=r"^admin:close$"))
     application.add_handler(CallbackQueryHandler(open_movies_menu, pattern=r"^admin:movies$"))
@@ -396,29 +400,6 @@ def register(application: Application) -> None:
 
     application.add_handler(
         ConversationHandler(
-            entry_points=[CallbackQueryHandler(start_add_movie, pattern=r"^admin:movie:add$")],
-            states={
-                MovieAdminStates.TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, movie_title)],
-                MovieAdminStates.DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, movie_description)],
-                MovieAdminStates.YEAR: [MessageHandler(filters.TEXT & ~filters.COMMAND, movie_year)],
-                MovieAdminStates.DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, movie_duration)],
-                MovieAdminStates.QUALITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, movie_quality)],
-                MovieAdminStates.CATEGORY: [CallbackQueryHandler(movie_category, pattern=r"^admin:movie:cat:\d+$")],
-                MovieAdminStates.GENRES: [CallbackQueryHandler(movie_genre_toggle, pattern=r"^admin:movie:genre:")],
-                MovieAdminStates.PREMIUM: [CallbackQueryHandler(movie_premium, pattern=r"^admin:movie:premium:")],
-                MovieAdminStates.POSTER: [
-                    CommandHandler("skip", movie_skip_poster),
-                    MessageHandler(filters.PHOTO, movie_poster),
-                ],
-                MovieAdminStates.VIDEO: [MessageHandler(filters.VIDEO | filters.Document.VIDEO, movie_video)],
-            },
-            fallbacks=[CommandHandler("cancel", cancel_movie_wizard)],
-            name="add_movie_conversation",
-        )
-    )
-
-    application.add_handler(
-        ConversationHandler(
             entry_points=[CallbackQueryHandler(start_edit_movie, pattern=r"^admin:movie:edit$")],
             states={
                 MovieAdminStates.EDIT_FIELD: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_movie_lookup)],
@@ -427,6 +408,8 @@ def register(application: Application) -> None:
             },
             fallbacks=[CommandHandler("cancel", cancel_movie_wizard)],
             name="edit_movie_conversation",
+            conversation_timeout=300,
+            allow_reentry=True,
         )
     )
 
@@ -436,5 +419,52 @@ def register(application: Application) -> None:
             states={MovieAdminStates.CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, delete_movie_confirm)]},
             fallbacks=[CommandHandler("cancel", cancel_movie_wizard)],
             name="delete_movie_conversation",
+            conversation_timeout=300,
+            allow_reentry=True,
+        )
+    )
+
+    application.add_handler(
+        ConversationHandler(
+            entry_points=[
+                CallbackQueryHandler(start_add_movie, pattern=r"^admin:movie:add$")
+            ],
+            states={
+                MovieAdminStates.TITLE: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, movie_title)
+                ],
+                MovieAdminStates.DESCRIPTION: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, movie_description)
+                ],
+                MovieAdminStates.YEAR: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, movie_year)
+                ],
+                MovieAdminStates.DURATION: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, movie_duration)
+                ],
+                MovieAdminStates.QUALITY: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, movie_quality)
+                ],
+                MovieAdminStates.CATEGORY: [
+                    CallbackQueryHandler(movie_category, pattern=r"^admin:movie:cat:\d+$")
+                ],
+                MovieAdminStates.GENRES: [
+                    CallbackQueryHandler(movie_genre_toggle, pattern=r"^admin:movie:genre:")
+                ],
+                MovieAdminStates.PREMIUM: [
+                    CallbackQueryHandler(movie_premium, pattern=r"^admin:movie:premium:")
+                ],
+                MovieAdminStates.POSTER: [
+                    MessageHandler(filters.PHOTO, movie_poster),
+                    CommandHandler("skip", movie_skip_poster),
+                ],
+                MovieAdminStates.VIDEO: [
+                    MessageHandler(filters.VIDEO | filters.Document.VIDEO, movie_video),
+                ],
+            },
+            fallbacks=[CommandHandler("cancel", cancel_movie_wizard)],
+            name="add_movie_conversation",
+            conversation_timeout=300,
+            allow_reentry=True,
         )
     )
